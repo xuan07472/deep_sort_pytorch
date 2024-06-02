@@ -11,3 +11,8 @@ build/
 *.avi
 *.so
 *.txt
+
+# Custom configuration
+datasets/
+try.ipynb
+deep_sort/deep/luderick

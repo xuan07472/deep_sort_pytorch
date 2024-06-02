@@ -46,29 +46,30 @@ def make_layers(c_in,c_out,repeat_times, is_downsample=False):
     return nn.Sequential(*blocks)
 
 class Net(nn.Module):
-    def __init__(self, num_classes=751 ,reid=False):
+    def __init__(self, num_classes=586 ,reid=False):     # num_classes=751.  change to 586  by 2021-9-30
         super(Net,self).__init__()
-        # 3 128 64
         self.conv = nn.Sequential(
-            nn.Conv2d(3,64,3,stride=1,padding=1),
-            nn.BatchNorm2d(64),
+            nn.Conv2d(3,32,3,stride=1,padding=1),
+            nn.BatchNorm2d(32),
             nn.ReLU(inplace=True),
-            # nn.Conv2d(32,32,3,stride=1,padding=1),
-            # nn.BatchNorm2d(32),
-            # nn.ReLU(inplace=True),
-            nn.MaxPool2d(3,2,padding=1),
+            nn.Conv2d(32,32,3,stride=1,padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(3,2,padding=1),        # 64x64
         )
-        # 32 64 32
-        self.layer1 = make_layers(64,64,2,False)
-        # 32 64 32
-        self.layer2 = make_layers(64,128,2,True)
-        # 64 32 16
-        self.layer3 = make_layers(128,256,2,True)
-        # 128 16 8
-        self.layer4 = make_layers(256,512,2,True)
-        # 256 8 4
-        self.avgpool = nn.AvgPool2d((8,4),1)
-        # 256 1 1 
+        
+        self.layer1 = make_layers(32,32,2,False)    #64x64
+        self.layer2 = make_layers(32,32,2,False)    #64x64
+        self.layer3 = make_layers(32,64,2,True)  # 32x32
+        self.layer4 = make_layers(64,64,2,False) # 32x32
+        self.layer5 = make_layers(64,64, 2, False)  # 32x32
+        self.layer6 = make_layers(64, 128, 2, True)  # 16x16
+        self.layer7 = make_layers(128, 128, 2, False)  # 16x16
+        self.layer8 = make_layers(128, 256, 2, True)  # 8x8
+        self.layer9 = make_layers(256, 512, 2, False)  #8x8
+
+        #self.avgpool = nn.AvgPool2d((8,8),1)    #  1x1  ------------------  nn.AvgPool2d((8,4),1)
+        self.adaptiveavgpool = nn.AdaptiveAvgPool2d(1)  #添加自适应平均池化
         self.reid = reid
         self.classifier = nn.Sequential(
             nn.Linear(512, 256),
@@ -78,15 +79,21 @@ class Net(nn.Module):
             nn.Linear(256, num_classes),
         )
     
-    def forward(self, x):
+    def forward(self, x):             # ResNet 36+2    dim=512
         x = self.conv(x)
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
-        x = self.avgpool(x)
+        x = self.layer5(x)
+        x = self.layer6(x)
+        x = self.layer7(x)
+        x = self.layer8(x)
+        x = self.layer9(x)
+        #x = self.avgpool(x)
+        x = self.adaptiveavgpool(x)   # 变更为自适应平均池化，适应不同尺寸输入图像。
         x = x.view(x.size(0),-1)
-        # B x 128
+       
         if self.reid:
             x = x.div(x.norm(p=2,dim=1,keepdim=True))
             return x
